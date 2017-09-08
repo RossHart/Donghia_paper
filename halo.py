@@ -4,6 +4,7 @@ from astropy.table import Table, column
 import astropy.units as u
 import math
 import numpy as np
+from scipy.special import kn as K, iv as I
 from uncertainties import ufloat as uf, unumpy as unp
 
 class TotalHalo():
@@ -83,7 +84,7 @@ class TotalHalo():
         r_b_mod = r_b.divide(scale_factor)
         return r_b.divide(scale_factor)
         
-    def halo_scale_length(self):
+    def halo_scale_length(self,return_r200=False):
         if self.R_halo is not None:
             return nda(self.R_halo,sdu(self.delta_R_halo))
         else:
@@ -98,7 +99,10 @@ class TotalHalo():
             r200 = r200.to(u.kpc)
             r200_error = (1/3) * r200 * M200_error/M200_value
             r_s = nda(r200,sdu(r200_error))
-            return r_s.divide(c200)
+            if return_r200 is True:
+                return r_s
+            else:    
+                return r_s.divide(c200)
     
     def hi_scale_length(self,m=1.87,m_error=0.03,c=7.2,c_error=0.03,
                         k=0.19,k_error=0.03): # Wang+14, Lelli+16
@@ -126,13 +130,15 @@ class TotalHalo():
             return self.stellar_disc_scale_length()
         else:
             r_d = unp.uarray(self.stellar_disc_scale_length().data,
-                            self.stellar_disc_scale_length().uncertainty.array)
+                             self.stellar_disc_scale_length().uncertainty.array)
             r_g = unp.uarray(self.hi_scale_length().data,
                              self.hi_scale_length().uncertainty.array)
         
-            rho_d = unp.uarray(self.M_hi.value,self.delta_M_hi.value)/r_d
-            rho_g = unp.uarray(self.disc_mass(hi=False).data,
-                               self.disc_mass(hi=False).uncertainty.array)/r_g
+            rho_d = (unp.uarray(self.M_hi.value,self.delta_M_hi.value)/
+                     (2*math.pi*r_d**2))
+            rho_g = (unp.uarray(self.disc_mass(hi=False).data,
+                                self.disc_mass(hi=False).uncertainty.array)/
+                     (2*math.pi*r_g**2))
         
             r_s = 1 / (unp.log((rho_d/(rho_g+rho_d)*unp.exp(1/r_g)) 
                              + (rho_g/(rho_g+rho_d)*unp.exp(1/r_d))))
@@ -142,17 +148,17 @@ class TotalHalo():
             return nda(r_ss,sdu(uncertainties),unit=u.kpc)
     
     
-    def m_equation(self,y=np.linspace(0.25,2.5,100),R=None,X=1.5):
+    def m_hernquist(self,y=np.linspace(0.25,2.5,100),R=None,X=1.5):
         
-        M_B = uf(self.bulge_mass().data,self.bulge_mass().uncertainty.array)
-        M_D = uf(self.disc_mass().data,self.disc_mass().uncertainty.array)
-        M_H = uf(self.halo_mass().data,self.halo_mass().uncertainty.array)
-        a_b = uf(self.bulge_scale_length().data,
-                 self.bulge_scale_length().uncertainty.array)
-        R_d = uf(self.disc_scale_length().data,
-                 self.disc_scale_length().uncertainty.array)
-        a_h = uf(self.halo_scale_length().data,
-                 self.halo_scale_length().uncertainty.array)
+        M_B = unp.uarray(self.bulge_mass().data,self.bulge_mass().uncertainty.array)
+        M_D = unp.uarray(self.disc_mass().data,self.disc_mass().uncertainty.array)
+        M_H = unp.uarray(self.halo_mass().data,self.halo_mass().uncertainty.array)
+        a_b = unp.uarray(self.bulge_scale_length().data,
+                         self.bulge_scale_length().uncertainty.array)
+        R_d = unp.uarray(self.disc_scale_length().data,
+                         self.disc_scale_length().uncertainty.array)
+        a_h = unp.uarray(self.halo_scale_length().data,
+                         self.halo_scale_length().uncertainty.array)
         if R is not None:
             y = (R/(2*R_d)).value
         else:
@@ -160,6 +166,36 @@ class TotalHalo():
         a = unp.exp(2*y)/X
         b = (M_B/M_D) * ((2*y + (3*a_b/R_d)) / (2*y + (a_b/R_d))**3)
         c = (M_H/M_D) * ((2*y + (3*a_h/R_d)) / (2*y + (a_h/R_d))**3)
+        d = (y**2/2) * (3*(I(1,y)*K(0,y)) - 3*(I(0,y)*K(1,y)) + (I(1,y)*K(2,y)) - (I(2,y)*K(1,y)))
+        e = (4*y) * (I(0,y)*K(0,y) - (I(1,y)*K(1,y)))
+        m = a*(b + c + d + e)
+        
+        m_table = Table()
+        m_table['m'] = [m[i].nominal_value for i in range(len(m))]
+        m_table['error'] = [m[i].std_dev for i in range(len(m))]
+        m_table['R'] = [R[i].nominal_value for i in range(len(R))]
+        m_table['y'] = y
+        return m_table
+    
+    def m_isothermal(self,y=np.linspace(0.25,2.5,100),R=None,X=1.5):
+        
+        M_B = unp.uarray(self.bulge_mass().data,self.bulge_mass().uncertainty.array)
+        M_D = unp.uarray(self.disc_mass().data,self.disc_mass().uncertainty.array)
+        M_H = unp.uarray(self.halo_mass().data,self.halo_mass().uncertainty.array)
+        a_b = unp.uarray(self.bulge_scale_length().data,
+                         self.bulge_scale_length().uncertainty.array)
+        R_d = unp.uarray(self.disc_scale_length().data,
+                         self.disc_scale_length().uncertainty.array)
+        a_h = unp.uarray(self.halo_scale_length().data,
+                         self.halo_scale_length().uncertainty.array)
+        if R is not None:
+            y = (R/(2*R_d)).value
+        else:
+            R = y * 2 * R_d
+        a = unp.exp(2*y)/X
+        b = (M_B/M_D) * ((2*y + (3*a_b/R_d)) / (2*y + (a_b/R_d))**3)
+        c = (M_H/M_D) * (2/math.pi) * (R_d/R)**2 * ((a_h*R/(R**2+a_h**2)) 
+                                                    + unp.arctan(R/a_h))
         d = (y**2/2) * (3*(I(1,y)*K(0,y)) - 3*(I(0,y)*K(1,y)) + (I(1,y)*K(2,y)) - (I(2,y)*K(1,y)))
         e = (4*y) * (I(0,y)*K(0,y) - (I(1,y)*K(1,y)))
         m = a*(b + c + d + e)
