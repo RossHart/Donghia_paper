@@ -38,7 +38,7 @@ class TotalHalo():
     def bulge_mass(self):
         return nda(self.M_b,sdu(self.delta_M_b))
     
-    def disc_mass(self,hi=False):
+    def disc_mass(self,hi=True):
         M_disc = nda(self.M_d,sdu(self.delta_M_d))
         if (hi is False) | (self.M_hi is None):
             return M_disc
@@ -104,15 +104,17 @@ class TotalHalo():
             else:    
                 return r_s.divide(c200)
     
-    def hi_scale_length(self,m=1.87,m_error=0.03,c=7.2,c_error=0.03,
+    def hi_scale_length(self,m=0.86,m_error=0.04,c=0.79,c_error=0.02,
                         k=0.19,k_error=0.03): # Wang+14, Lelli+16
         
         m_param = uf(m,m_error)
         c_param = uf(c,c_error)
         k_param = uf(k,k_error)
-        hi_mass = unp.uarray(self.M_hi.value,self.delta_M_hi.value)
-        loghimass = unp.log10(hi_mass)
-        logr_hi = (loghimass - c_param) / m
+
+        r_d = unp.uarray(self.stellar_disc_scale_length().data,
+                         self.stellar_disc_scale_length().uncertainty.array)
+        log_r_d = unp.log10(r_d)
+        logr_hi = m_param * log_r_d + c_param
         r_hi = 10**logr_hi
         r_s = k_param * r_hi
         r_ss = [r_s[i].nominal_value for i in range(len(r_s))]
