@@ -179,7 +179,7 @@ class TotalHalo():
         m_table['y'] = y
         return m_table
     
-    def m_isothermal(self,y=np.linspace(0.25,2.5,100),R=None,X=1.5):
+    def m_burkert(self,y=np.linspace(0.25,2.5,100),R=None,X=1.5):
         
         M_B = unp.uarray(self.bulge_mass().data,self.bulge_mass().uncertainty.array)
         M_D = unp.uarray(self.disc_mass().data,self.disc_mass().uncertainty.array)
@@ -190,14 +190,26 @@ class TotalHalo():
                          self.disc_scale_length().uncertainty.array)
         a_h = unp.uarray(self.halo_scale_length().data,
                          self.halo_scale_length().uncertainty.array)
+        r200 = unp.uarray(self.halo_scale_length(True).data,
+                         self.halo_scale_length(True).uncertainty.array)
         if R is not None:
             y = (R/(2*R_d)).value
         else:
             R = y * 2 * R_d
+            
+        rho0 = M_H/((2*np.pi*a_h**3) * (unp.log((r200+a_h)/a_h) 
+                                      + 0.5 * unp.log((r200**2+a_h**2)/a_h**2) 
+                                      - unp.arctan(r200/a_h)))   
+
+        #print((2*np.pi*rho0*R**3/M_D))
+        
         a = unp.exp(2*y)/X
         b = (M_B/M_D) * ((2*y + (3*a_b/R_d)) / (2*y + (a_b/R_d))**3)
-        c = (M_H/M_D) * (2/math.pi) * (R_d/R)**2 * ((a_h*R/(R**2+a_h**2)) 
-                                                    + unp.arctan(R/a_h))
+        c = (2*np.pi*rho0*R**3/M_D) * (1/(4*y**2)) * ((R**2/(R**2+a_h**2))
+                                                     + (R/(a_h*(R**2/a_h**2 + 1)))
+                                                     + unp.log(1+R/a_h)
+                                                     + unp.log(1+(R/a_h)**2)
+                                                     - unp.arctan(R/a_h))
         d = (y**2/2) * (3*(I(1,y)*K(0,y)) - 3*(I(0,y)*K(1,y)) + (I(1,y)*K(2,y)) - (I(2,y)*K(1,y)))
         e = (4*y) * (I(0,y)*K(0,y) - (I(1,y)*K(1,y)))
         m = a*(b + c + d + e)
