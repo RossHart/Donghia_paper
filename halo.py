@@ -178,6 +178,20 @@ class TotalHalo():
         m_table['R'] = [R[i].nominal_value for i in range(len(R))]
         m_table['y'] = y
         return m_table
+      
+    def burkert_rho0(self):
+      
+        a_h = unp.uarray(self.halo_scale_length().data,
+                         self.halo_scale_length().uncertainty.array)
+        M_H = unp.uarray(self.halo_mass().data,self.halo_mass().uncertainty.array)
+        r200 = unp.uarray(self.halo_scale_length(True).data,
+                          self.halo_scale_length(True).uncertainty.array)
+      
+        rho0 = M_H/((2*np.pi*a_h**3) * (unp.log((r200+a_h)/a_h) 
+                                      + 0.5 * unp.log((r200**2+a_h**2)/a_h**2) 
+                                      - unp.arctan(r200/a_h)))
+        return rho0
+        
     
     def m_burkert(self,y=np.linspace(0.25,2.5,100),R=None,X=1.5):
         
@@ -192,17 +206,13 @@ class TotalHalo():
                          self.halo_scale_length().uncertainty.array)
         r200 = unp.uarray(self.halo_scale_length(True).data,
                          self.halo_scale_length(True).uncertainty.array)
+
+        rho0 = self.burkert_rho0()  
         if R is not None:
             y = (R/(2*R_d)).value
         else:
             R = y * 2 * R_d
-            
-        rho0 = M_H/((2*np.pi*a_h**3) * (unp.log((r200+a_h)/a_h) 
-                                      + 0.5 * unp.log((r200**2+a_h**2)/a_h**2) 
-                                      - unp.arctan(r200/a_h)))   
 
-        #print((2*np.pi*rho0*R**3/M_D))
-        
         a = unp.exp(2*y)/X
         b = (M_B/M_D) * ((2*y + (3*a_b/R_d)) / (2*y + (a_b/R_d))**3)
         c = (2*np.pi*rho0*R**3/M_D) * (1/(4*y**2)) * ((R**2/(R**2+a_h**2))
@@ -220,4 +230,49 @@ class TotalHalo():
         m_table['R'] = [R[i].nominal_value for i in range(len(R))]
         m_table['y'] = y
         return m_table
+      
+    def M_disc_22(self,hi=False):
+        M_disc = self.disc_mass(hi)
+        return M_disc.multiply(0.645)
+      
+    def M_bulge_22(self):
+        R22 = unp.uarray(self.R_d.data, self.delta_R_d.data) * 2.2
+        a_b = unp.uarray(self.a_b.data, self.delta_a_b.data)
+        M_b = unp.uarray(self.M_b.data, self.delta_M_b.data)
+        M_22 = M_b * (R22**2 / (R22**2 + a_b**2))
+        M_22s = [M_22[i].nominal_value for i in range(len(M_22))]
+        uncertainties = [M_22[i].std_dev for i in range(len(M_22))]
+        return nda(M_22s,sdu(uncertainties),unit=u.kpc)
+      
+    def M_halo_22_hernquist(self):
+        R22 = unp.uarray(self.R_d.data, self.delta_R_d.data) * 2.2
+        a_h = unp.uarray(self.halo_scale_length().data,
+                         self.halo_scale_length().uncertainty.array)
+        M_h = unp.uarray(self.halo_mass().data, 
+                         self.halo_mass().uncertainty.array)
+
+        M_22 = M_h * (R22**2 / (R22**2 + a_h**2))
+        M_22s = [M_22[i].nominal_value for i in range(len(M_22))]
+        uncertainties = [M_22[i].std_dev for i in range(len(M_22))]
+        return nda(M_22s,sdu(uncertainties),unit=u.kpc)
+        
+    def M_halo_22_burkert(self):
+      
+        R22 = unp.uarray(self.R_d.data, self.delta_R_d.data) * 2.2
+        a_h = unp.uarray(self.halo_scale_length().data,
+                         self.halo_scale_length().uncertainty.array)
+        rho0 = self.burkert_rho0()
+        a = 2 * math.pi * rho0 * a_h**3
+        b = (unp.log((R22+a_h)/a_h)
+           + 0.5 * unp.log((R22**2 + a_h **2)/a_h**2)
+           - unp.arctan(R22/a_h))
+        M_22 = a * b
+        M_22s = [M_22[i].nominal_value for i in range(len(M_22))]
+        uncertainties = [M_22[i].std_dev for i in range(len(M_22))]
+        return nda(M_22s,sdu(uncertainties),unit=u.kpc)
+        
+        
+        
+        
+        
         
