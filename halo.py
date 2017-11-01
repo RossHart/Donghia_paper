@@ -361,14 +361,110 @@ class TotalHalo():
         return self.Gamma_
 
       
-    def psi_predicted(self,halo='hernquist'):
+    def psi_predicted_michikoshi(self,halo='hernquist'):
         Gamma = self.nda_to_unp(self.total_shear(halo))
         tanpsi = 2/7 * unp.sqrt(4-2*Gamma)/Gamma
         #tanpsi = 1.932 - 5.186*(0.5*Gamma) + 4.704*(0.5*Gamma)**2
         psi = unp.arctan(tanpsi) * 360/(2*math.pi)
-        self.psi_ = self.unp_to_nda(psi,u.degree)
-        return self.psi_
+        self.psi_michikoshi_ = self.unp_to_nda(psi,u.degree)
+        return self.psi_michikoshi_
+      
+    def psi_predicted_seigar(self,halo='hernquist'):
+        Gamma = self.nda_to_unp(self.total_shear(halo))
+        m = unp.uarray(-36.62,2.77)
+        c = unp.uarray(64.25,2.87)
+        psi = m * Gamma + c
+        self.psi_seigar_ = self.unp_to_nda(psi,u.degree)
+        return self.psi_seigar_
         
+def get_halo_table(halos):
+
+    halo_table = Table()
+
+    halo_table['M_disc_stars'] = halos.disc_mass(hi=False).data
+    halo_table['delta_M_disc_stars'] = (
+                                  halos.disc_mass(hi=False).uncertainty.array)
+
+    halo_table['M_disc_total'] = halos.disc_mass(hi=True).data
+    halo_table['delta_M_disc_total'] = (
+                                   halos.disc_mass(hi=True).uncertainty.array)
+
+    halo_table['R_disc_stars'] = halos.stellar_disc_scale_length().data
+    halo_table['delta_R_disc_stars'] = (
+                          halos.stellar_disc_scale_length().uncertainty.array)
+
+    halo_table['R_disc_total'] = halos.disc_scale_length().data
+    halo_table['delta_R_disc_total'] = (
+                                  halos.disc_scale_length().uncertainty.array)
+
+    halo_table['M_bulge'] = halos.bulge_mass().data
+    halo_table['delta_M_bulge'] = halos.bulge_mass().uncertainty.array
+
+    halo_table['R_bulge'] = halos.bulge_scale_length().data
+    halo_table['delta_R_bulge'] = halos.bulge_scale_length().uncertainty.array
+
+    halo_table['M_halo'] = halos.halo_mass().data
+    halo_table['delta_M_halo'] = halos.halo_mass().uncertainty.array
+
+    halo_table['R_halo'] = halos.halo_scale_length()[0].data
+    halo_table['delta_R_halo'] = (
+                               halos.halo_scale_length()[0].uncertainty.array)
+
+    r_d = [2,2.2]
+    for r in r_d:
+        m_hernquist_pred = halos.m_predicted(y=r/2,halo='hernquist')
+        m_burkert_pred = halos.m_predicted(y=r/2,halo='burkert')
+        halo_table['m_hernquist_{}R_d'.format(r)] = m_hernquist_pred['m']
+        halo_table['delta_m_hernquist_{}R_d'.format(r)] = m_hernquist_pred['error']
+        halo_table['m_burkert_{}R_d'.format(r)] = m_burkert_pred['m']
+        halo_table['delta_m_burkert_{}R_d'.format(r)] = m_burkert_pred['error']
         
-        
+    halo_table['M_disc_stars_2.2'] = halos.M_disc_22(False).data
+    halo_table['delta_M_disc_stars_2.2'] = (
+                                     halos.M_disc_22(False).uncertainty.array)
+    
+    halo_table['M_disc_total_2.2'] = halos.M_disc_22(True).data
+    halo_table['delta_M_disc_total_2.2'] = (
+                                      halos.M_disc_22(True).uncertainty.array)
+    
+    halo_table['M_bulge_2.2'] = halos.M_bulge_22().data
+    halo_table['delta_M_bulge_2.2'] = halos.M_bulge_22().uncertainty.array
+    
+    halo_table['M_halo_2.2_hernquist'] = halos.M_halo_22_hernquist().data
+    halo_table['delta_M_halo_2.2_hernquist'] = (
+                                halos.M_halo_22_hernquist().uncertainty.array)
+    
+    halo_table['M_halo_2.2_burkert'] = halos.M_halo_22_burkert().data
+    halo_table['delta_M_halo_2.2_burkert'] = (
+                                  halos.M_halo_22_burkert().uncertainty.array)
+    
+    halo_table['Gamma_hernquist'] = halos.total_shear('hernquist').data
+    halo_table['delta_Gamma_hernquist'] = (
+                             halos.total_shear('hernquist').uncertainty.array)
+    
+    halo_table['Gamma_burkert'] = halos.total_shear('burkert').data
+    halo_table['delta_Gamma_burkert'] = (
+                               halos.total_shear('burkert').uncertainty.array)
+
+    halo_table['psi_hernquist_michikoshi'] = (
+                             halos.psi_predicted_michikoshi('hernquist').data)
+    halo_table['delta_psi_hernquist_michikoshi'] = (
+                halos.psi_predicted_michikoshi('hernquist').uncertainty.array)
+    
+    halo_table['psi_burkert_michikoshi'] = (
+                               halos.psi_predicted_michikoshi('burkert').data)
+    halo_table['delta_psi_burkert_michikoshi'] = (
+                  halos.psi_predicted_michikoshi('burkert').uncertainty.array)
+    
+    halo_table['psi_hernquist_seigar'] = (
+                                 halos.psi_predicted_seigar('hernquist').data)
+    halo_table['delta_psi_hernquist_seigar'] = (
+                    halos.psi_predicted_seigar('hernquist').uncertainty.array)
+    
+    halo_table['psi_burkert_seigar'] = (
+                                   halos.psi_predicted_seigar('burkert').data)
+    halo_table['delta_psi_burkert_seigar'] = (
+                      halos.psi_predicted_seigar('burkert').uncertainty.array)
+    
+    return halo_table
         
