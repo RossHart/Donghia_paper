@@ -127,7 +127,8 @@ class TotalHalo():
         exists = 'halo_mass_hernquist_' in self.__dict__
         if exists is False:
             R_halo = self.nda_to_unp(self.halo_scale_length()[0])
-            M_halo_hernquist = 4 * math.pi * R_halo**3 * self.burkert_rho0()
+            burkert_rho0 = self.nda_to_unp(self.burkert_rho0())
+            M_halo_hernquist = 4 * math.pi * R_halo**3 * burkert_rho0
             self.halo_mass_hernquist_ = self.unp_to_nda(M_halo_hernquist,u.Msun)
         return self.halo_mass_hernquist_
     
@@ -193,7 +194,7 @@ class TotalHalo():
         if halo is 'hernquist':
             c = (M_H/M_D) * ((2*y + (3*a_h/R_d)) / (2*y + (a_h/R_d))**3)
         else:
-            rho0 = self.burkert_rho0()
+            rho0 = self.nda_to_unp(self.burkert_rho0())
             c = (2*np.pi*rho0*R**3/M_D) * (1/(4*y**2)) * ((R**2/(R**2+a_h**2))
                                                  + (R/(a_h*(R**2/a_h**2 + 1)))
                                                  + unp.log(1+R/a_h)
@@ -219,9 +220,10 @@ class TotalHalo():
             M_H = self.nda_to_unp(self.halo_mass())
             r200 = self.nda_to_unp(self.halo_scale_length()[1])
       
-            self.rho0 = M_H/((2*np.pi*a_h**3) * (unp.log((r200+a_h)/a_h) 
-                                      + 0.5 * unp.log((r200**2+a_h**2)/a_h**2) 
-                                      - unp.arctan(r200/a_h)))
+            rho0 = M_H/((2*np.pi*a_h**3) * (unp.log((r200+a_h)/a_h) 
+                                    + 0.5 * unp.log((r200**2+a_h**2)/a_h**2) 
+                                          - unp.arctan(r200/a_h)))
+            self.rho0 = self.unp_to_nda(rho0)
         return self.rho0
       
     def M_disc_22(self,hi=False):
@@ -255,7 +257,7 @@ class TotalHalo():
         if exists is False:
             R22 = self.nda_to_unp(self.disc_scale_length()) * 2.2
             a_h = self.nda_to_unp(self.halo_scale_length()[0])
-            rho0 = self.burkert_rho0()
+            rho0 = self.nda_to_unp(self.burkert_rho0())
             a = 2 * math.pi * rho0 * a_h**3
             b = (unp.log((R22+a_h)/a_h)
                + 0.5 * unp.log((R22**2 + a_h **2)/a_h**2)
@@ -328,7 +330,7 @@ class TotalHalo():
                 y = (R/(2*R_d)).value
             else:
                 R = y * 2 * R_d
-            rho0 = self.burkert_rho0()    
+            rho0 = self.nda_to_unp(self.burkert_rho0()) 
             C = 2* math.pi * rho0 * a_h**3
             
             kappa2 = (C/R**3) * (R**2/(R**2 + a_h**2) 
@@ -419,6 +421,17 @@ def get_halo_table(halos):
     halo_table['R_halo'] = halos.halo_scale_length()[0].data
     halo_table['delta_R_halo'] = (
                                halos.halo_scale_length()[0].uncertainty.array)
+    
+    halo_table['R200'] = halos.halo_scale_length()[1].data
+    halo_table['delta_R200'] = (
+                               halos.halo_scale_length()[1].uncertainty.array)
+    
+    halo_table['modified_M_halo'] = halos.halo_mass_hernquist().data
+    halo_table['delta_modified_M_halo'] = (
+                                halos.halo_mass_hernquist().uncertainty.array)
+    
+    halo_table['rho0_burkert'] = halos.burkert_rho0().data
+    halo_table['delta_rho0_burkert'] = halos.burkert_rho0().uncertainty.array
 
     r_d = [2,2.2]
     for r in r_d:
